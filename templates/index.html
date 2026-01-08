@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sovereign | Enterprise Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+Devanagari:wght@300;400;600&display=swap');
+        body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; background: #000; color: #fff; overflow-x: hidden; }
+        .aura { position: fixed; inset: 0; background: radial-gradient(circle at 50% 0%, #111 0%, #000 95%); z-index: -1; }
+        
+        /* Core UI Components */
+        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); transition: 0.3s; }
+        .glass:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Loader */
+        #loader { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
+        .pulse { width: 40px; height: 40px; border: 2px solid #222; border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Focus Reader (Links) */
+        #focus-panel { position: fixed; top: 0; right: -100%; width: 65%; height: 100%; background: #fff; z-index: 9000; transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: -20px 0 60px rgba(0,0,0,0.8); }
+        #focus-panel.active { right: 0; }
+        #focus-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 8500; }
+
+        /* Media Vault (Images) */
+        #media-vault { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9500; justify-content: center; align-items: center; cursor: zoom-out; }
+        #vault-img { max-width: 90%; max-height: 85%; border-radius: 12px; }
+
+        /* Cinema (Videos + Ad) */
+        #theater { display: none; position: fixed; inset: 0; background: #000; z-index: 8000; flex-direction: column; align-items: center; justify-content: center; }
+        #ad-roll { display: none; background: #000; color: #3b82f6; font-size: 14px; text-transform: uppercase; letter-spacing: 4px; padding: 20px; text-align: center; }
+
+        /* Sovereign Shield Indicator */
+        .shield-active { border-color: #3b82f6 !important; box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+
+        /* Sovereign Pulse Analytics */
+        #pulse-dashboard { display: none; position: fixed; bottom: 20px; left: 20px; width: 300px; background: rgba(10,10,10,0.95); border: 1px solid #333; padding: 20px; border-radius: 15px; z-index: 10000; font-size: 10px; }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="aura"></div>
+
+    <div id="loader"><div class="pulse"></div></div>
+
+    <div id="media-vault" onclick="closeVault()"><img id="vault-img" src=""></div>
+
+    <div id="focus-overlay" onclick="closeFocus()"></div>
+    <div id="focus-panel">
+        <div class="flex items-center justify-between p-4 bg-neutral-100 border-b border-neutral-200">
+            <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Sovereign Focus Reader</span>
+            <button onclick="closeFocus()" class="text-neutral-900 text-xs font-bold uppercase hover:text-red-600 transition">CLOSE ×</button>
+        </div>
+        <iframe id="focus-frame" src="" class="w-full h-full bg-white" frameborder="0"></iframe>
+    </div>
+
+    <div id="theater">
+        <div id="ad-roll">Sovereign Insight: Powered by [Partner Name]</div>
+        <div class="w-[85%] aspect-video rounded-3xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl">
+            <iframe id="video-frame" src="" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <button onclick="closeTheater()" class="mt-8 text-neutral-500 hover:text-white uppercase text-[10px] tracking-widest">END SESSION</button>
+    </div>
+
+    <div id="pulse-dashboard">
+        <h4 class="text-neutral-500 mb-4 tracking-widest uppercase">Sovereign Pulse Analytics</h4>
+        <div class="flex justify-between mb-2"><span>Trending:</span> <span class="text-blue-400">AI / Enterprise</span></div>
+        <div class="flex justify-between mb-2"><span>Language:</span> <span class="text-blue-400">{{ current_lang }}</span></div>
+        <div class="flex justify-between"><span>Partner Clicks:</span> <span class="text-green-400">142</span></div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-8 pt-20 pb-40">
+        <div class="flex flex-col items-center mb-16">
+            <div class="flex gap-4 mb-8">
+                <button onclick="togglePulse()" class="text-[9px] border border-white/10 px-4 py-1 rounded-full uppercase hover:bg-white hover:text-black transition">PULSE</button>
+                <div class="flex items-center gap-2 border border-white/10 px-4 py-1 rounded-full {{ 'shield-active' if shield_mode }}">
+                    <span class="text-[9px] uppercase">Shield Mode</span>
+                    <input type="checkbox" id="shield-toggle" onchange="submitWithShield()" {{ 'checked' if shield_mode }} class="form-checkbox h-4 w-4 text-blue-600">
+                </div>
+            </div>
+
+            <h1 class="text-5xl font-semibold italic tracking-tighter mb-12">Sovereign</h1>
+            
+            <form action="/" method="POST" id="search-form" onsubmit="showLoader()" class="w-full max-w-2xl relative">
+                <input type="hidden" name="lang" id="lang-input" value="{{ current_lang }}">
+                <input type="hidden" name="shield_mode" id="shield-input" value="{{ 'true' if shield_mode else 'false' }}">
+                <input type="text" id="search-input" name="search_query" value="{{ query if query }}" 
+                    placeholder="Engage Sovereign (speak or type)..." 
+                    class="w-full bg-white/5 border border-white/10 rounded-full px-12 py-6 text-xl text-center outline-none {{ 'shield-active' if shield_mode }}">
+                <button type="button" onclick="startVoice()" class="absolute right-8 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                </button>
+            </form>
+        </div>
+
+        {% if query %}
+            <section class="mb-20 max-w-4xl border-l-2 border-blue-500/30 pl-12 py-2">
+                <p id="speech-text" class="text-4xl font-light leading-snug text-neutral-200">{{ summary }}</p>
+            </section>
+
+            {% if images %}
+            <h3 class="text-[10px] text-neutral-600 tracking-widest uppercase mb-6">Visual Intelligence</h3>
+            <div class="no-scrollbar flex overflow-x-auto gap-4 mb-20">
+                {% for img in images %}
+                <img src="{{ img }}" class="flex-none h-52 w-80 object-cover rounded-2xl cursor-zoom-in glass" onclick="openVault('{{ img }}')">
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if videos %}
+            <h3 class="text-[10px] text-neutral-600 tracking-widest uppercase mb-6">Sovereign Cinema</h3>
+            <div class="no-scrollbar flex overflow-x-auto gap-6 pb-4 mb-20">
+                {% for vid in videos %}
+                <div class="flex-none w-80 cursor-pointer group" onclick="openTheater('{{ vid.id }}')">
+                    <img src="{{ vid.thumb }}" class="aspect-video rounded-3xl object-cover mb-2 border border-white/10 group-hover:border-white/20 transition">
+                    <p class="text-[10px] text-neutral-500 line-clamp-2">{{ vid.title }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <h3 class="text-[10px] text-neutral-600 tracking-widest uppercase mb-12 text-center italic">Knowledge Nodes (Top 10)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {% for res in results %}
+                <div onclick="openFocus('{{ res.link }}')" class="glass p-8 rounded-[32px] cursor-pointer relative overflow-hidden">
+                    {% if res.get('is_partner') %}
+                    <span class="absolute top-0 right-0 bg-blue-600 text-[8px] px-3 py-1 uppercase font-bold rounded-bl-lg">PARTNER</span>
+                    {% endif %}
+                    <h3 class="font-semibold text-xs mb-3 truncate">{{ res.title }}</h3>
+                    <p class="text-[10px] text-neutral-500 line-clamp-3">{{ res.snippet }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </main>
+
+    <script>
+        // Global UI Handlers
+        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+        function openVault(u) { document.getElementById('vault-img').src = u; document.getElementById('media-vault').style.display = 'flex'; }
+        function closeVault() { document.getElementById('media-vault').style.display = 'none'; }
+        function closeFocus() { document.getElementById('focus-panel').classList.remove('active'); document.getElementById('focus-overlay').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        function openFocus(u) { document.getElementById('focus-frame').src = u; document.getElementById('focus-panel').classList.add('active'); document.getElementById('focus-overlay').style.display = 'block'; document.body.style.overflow = 'hidden'; }
+        
+        // Cinema with Pre-Roll Ad
+        function openTheater(id) {
+            const ad = document.getElementById('ad-roll');
+            const videoFrame = document.getElementById('video-frame');
+            ad.style.display = 'block';
+            videoFrame.src = ""; // Clear video for ad
+            document.getElementById('theater').style.display = 'flex';
+            
+            setTimeout(() => {
+                ad.style.display = 'none';
+                videoFrame.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1`;
+            }, 3000); // 3-second brand message
+        }
+        function closeTheater() { document.getElementById('theater').style.display = 'none'; document.getElementById('video-frame').src = ""; }
+
+        // Sovereign Pulse Analytics Toggle
+        function togglePulse() {
+            const p = document.getElementById('pulse-dashboard');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Shield Mode Toggle
+        function submitWithShield() {
+            document.getElementById('shield-input').value = document.getElementById('shield-toggle').checked ? 'true' : 'false';
+            document.getElementById('search-form').submit();
+        }
+
+        // --- Bilingual Human Voice Engine ---
+        function speak() {
+            const summary = document.getElementById('speech-text');
+            if (!summary) return;
+            const text = summary.innerText;
+            const isHindi = /[\u0900-\u097F]/.test(text);
+            
+            const msg = new SpeechSynthesisUtterance(text);
+            let voices = window.speechSynthesis.getVoices();
+            
+            msg.voice = voices.find(v => v.lang === (isHindi ? 'hi-IN' : 'en-US') && v.name.includes('Google')) || 
+                        voices.find(v => v.lang === (isHindi ? 'hi-IN' : 'en-US')) ||
+                        voices[0]; // Fallback to first available voice
+            msg.lang = isHindi ? 'hi-IN' : 'en-US';
+            msg.rate = 0.9;
+            msg.pitch = 1.0;
+            
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(msg);
+        }
+
+        // Voice Input Detection
+        function startVoice() {
+            const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const rec = new Speech();
+            rec.lang = 'en-US'; // Start with a broad language detection
+            rec.interimResults = false;
+            rec.maxAlternatives = 1;
+            
+            rec.onstart = () => { document.getElementById('mic-icon').style.color = "#3b82f6"; };
+            rec.onend = () => { document.getElementById('mic-icon').style.color = "#a3a3a3"; };
+
+            rec.onresult = (e) => {
+                const transcript = e.results[0][0].transcript;
+                const isHindi = /[\u0900-\u097F]/.test(transcript); // Check for Hindi characters
+                
+                document.getElementById('lang-input').value = isHindi ? 'hi-IN' : 'en-US';
+                document.getElementById('search-input').value = transcript;
+                document.getElementById('search-form').submit();
+            };
+            rec.start();
+        }
+
+        // Initial Triggers
+        window.speechSynthesis.onvoiceschanged = () => { if(document.getElementById('speech-text')) speak(); };
+        window.onload = () => { 
+            if(document.getElementById('speech-text')) speak(); 
+            // Optionally set initial partner name in ad roll
+            document.getElementById('ad-roll').innerText = "Sovereign Insight: Powered by NVIDIA - AI Leadership";
+        };
+    </script>
+</body>
+</html>
